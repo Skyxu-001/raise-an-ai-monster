@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Raise an AI Monster</title>
+<script type="importmap">{"imports": {"three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@4.4.0/dist/model-viewer.min.js"></script>
+<style>
+:root {
+  --bg: #f4f2ee; --card: #fff; --ink: #1d1d1f; --muted: #6b6b70; --line: #e4e1da; --accent: #d9622b;
+  --accent-ink: #fff; --soft: #f8f6f2; --good: #2f8f4e; --bad: #c0392b; --viewer: #efece6;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.55 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--card); }
+h1 { font-size: 18px; margin: 0; } h1 small { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 6px; }
+.who { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+input[type=text], textarea, select { font: inherit; color: inherit; background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
+textarea { width: 100%; min-height: 64px; resize: vertical; }
+button { font: inherit; border: 0; border-radius: 8px; padding: 7px 14px; background: var(--accent); color: var(--accent-ink); cursor: pointer; }
+button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+button:disabled { opacity: .5; cursor: progress; }
+.tok { font-weight: 600; }
+.spark { font-size: 12px; color: var(--muted); } .spark.ok::before, .spark.down::before { content: "●"; margin-right: 4px; }
+.spark.ok::before { color: var(--good); } .spark.down { color: var(--bad); }
+#welcome { max-width: 640px; margin: 32px auto; } #welcome p { margin: 6px 0; } #welcome b { color: var(--accent); }
+main { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 16px; padding: 16px 20px; max-width: 1280px; margin: 0 auto; }
+@media (max-width: 860px) { main { grid-template-columns: 1fr; padding: 12px 16px; } header { padding: 12px 16px; } }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 16px; }
+.card h2 { font-size: 15px; margin: 0 0 10px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.card h2 small { font-weight: 400; color: var(--muted); font-size: 12px; }
+.hint { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+.viewer { position: relative; background: var(--viewer); border-radius: 12px; height: 380px; overflow: hidden; }
+.viewer model-viewer, .viewer img { width: 100%; height: 100%; display: block; object-fit: contain; }
+.viewer .status { position: absolute; left: 10px; right: 10px; bottom: 10px; background: rgba(0,0,0,.62); color: #fff; padding: 6px 10px; border-radius: 8px; font-size: 12px; }
+.viewer .empty { display: flex; height: 100%; align-items: center; justify-content: center; color: var(--muted); }
+.strip { display: flex; gap: 8px; margin: 10px 0 4px; overflow-x: auto; }
+.strip button { padding: 0; background: var(--viewer); border: 2px solid transparent; border-radius: 8px; width: 78px; flex: none; color: var(--ink); }
+.strip button.sel { border-color: var(--accent); }
+.strip img { width: 74px; height: 60px; object-fit: contain; display: block; }
+.strip span { display: block; font-size: 11px; padding: 1px 0 3px; }
+.strip span.nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 1px 4px 3px; }
+.strip button.add { background: transparent; border: 2px dashed var(--line); font-size: 12px; color: var(--muted); min-height: 82px; }
+.strip button.add:disabled { cursor: not-allowed; }
+.roster { margin: 0 0 10px; } .roster .hint { margin: 0; } .roster .strip { flex-wrap: wrap; }
+h2 .rename { padding: 1px 8px; font-size: 12px; margin-left: 6px; }
+#renameBox { display: inline-flex; gap: 6px; align-items: center; } #renameBox input { width: 180px; padding: 4px 8px; }
+#renameBox button { padding: 4px 10px; font-size: 13px; }
+#hatchName { width: 100%; box-sizing: border-box; margin-bottom: 8px; }
+.row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; }
+.chip { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; background: var(--soft); border: 1px solid var(--line); }
+.el { color: #fff; border: 0; }
+.chip.locked { background: transparent; color: var(--muted); border-style: dashed; }
+.lvl { font-size: 20px; font-weight: 700; margin-right: 6px; }
+.bar { height: 8px; background: var(--soft); border-radius: 4px; overflow: hidden; flex: 1; }
+.bar i { display: block; height: 100%; background: var(--accent); border-radius: 4px; transition: width .4s; }
+.stat { display: grid; grid-template-columns: 62px 1fr 34px; gap: 8px; align-items: center; font-size: 13px; margin: 3px 0; }
+.stat b { text-align: right; font-weight: 600; }
+.locks { color: var(--bad); font-size: 12px; margin: 6px 0; padding-left: 18px; }
+.skills { list-style: none; padding: 0; margin: 6px 0; }
+.skills li { display: flex; justify-content: space-between; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); }
+.skills li small { color: var(--muted); }
+.skills button { padding: 2px 8px; font-size: 12px; }
+.plans { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.plans label { cursor: pointer; } .plans input { display: none; }
+.plans span { display: inline-block; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--soft); }
+.plans input:checked + span { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+.preview { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--soft); font-size: 13px; }
+.preview ul { margin: 4px 0; padding-left: 18px; }
+.up { color: var(--good); } .down { color: var(--bad); }
+.ignored { color: var(--bad); font-size: 12px; }
+.opps { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.opp { border: 1px solid var(--line); border-radius: 12px; padding: 8px; background: var(--soft); }
+.opp img { width: 100%; height: 110px; object-fit: contain; display: block; }
+.opp .nm { font-weight: 600; } .opp small { color: var(--muted); display: block; }
+.opp button { width: 100%; margin-top: 6px; }
+.arena { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; }
+.side { text-align: center; }
+.stage { height: 340px; border-radius: 12px; overflow: hidden; background: #cfe6f5 center / cover no-repeat; margin-bottom: 10px; position: relative; }
+main.in-battle { grid-template-columns: minmax(0, 1fr); max-width: 1120px; }
+main.in-battle > section:first-child { display: none; }
+main.in-battle .stage { height: min(54vh, 560px); }
+@media (min-width: 900px) {
+  main.in-battle #battleCard:not(.hidden) { display: grid; grid-template-columns: minmax(0, 1fr) 300px; column-gap: 18px; align-content: start; }
+  main.in-battle #battleCard > h2, main.in-battle .stage { grid-column: 1 / -1; }
+  main.in-battle .arena, main.in-battle .bskills, main.in-battle #bend { grid-column: 1; }
+  main.in-battle .log { grid-column: 2; grid-row: 3 / span 3; max-height: 176px; align-self: start; }
+}
+.lrow { display: grid; grid-template-columns: 44px 1fr; gap: 8px; align-items: baseline; font-size: 13px; padding: 5px 0; border-top: 1px solid var(--line, #eee); }
+.lrow:first-child { border-top: 0; }
+.lrow b { font-size: 15px; text-align: right; }
+.lrow em { display: block; font-style: normal; font-size: 12px; color: var(--muted); }
+#ledgerMore { margin-top: 6px; }
+.stage canvas { display: block; width: 100%; height: 100%; }
+.stage .fallback { display: flex; height: 100%; align-items: center; justify-content: space-around; }
+.stage .fallback img { width: 40%; height: 80%; object-fit: contain; }
+.stage .loading { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); padding: 3px 10px; border-radius: 999px;
+                  background: rgba(255,255,255,.8); color: var(--muted); font-size: 12px; }
+.side .nm { font-weight: 600; margin-top: 6px; }
+.hpbar { height: 10px; background: var(--soft); border-radius: 5px; overflow: hidden; margin: 4px 0 0; }
+.hpbar i { display: block; height: 100%; background: var(--good); transition: width .5s; }
+.vs { font-weight: 800; color: var(--muted); }
+.bskills { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin: 12px 0; }
+.bskills button { text-align: left; } .bskills small { display: block; opacity: .85; font-size: 11px; }
+.log { max-height: 220px; overflow-y: auto; font-size: 13px; background: var(--soft); border-radius: 10px; padding: 8px 12px; }
+.log p { margin: 2px 0; } .log .me { color: var(--accent); } .log .t { color: var(--muted); font-size: 11px; margin-top: 6px; }
+.shake { animation: shake .45s; } .lunge-l { animation: lungeL .4s; } .lunge-r { animation: lungeR .4s; }
+@keyframes shake { 0%,100% { transform: translateX(0) } 20%,60% { transform: translateX(-8px) } 40%,80% { transform: translateX(8px) } }
+@keyframes lungeL { 50% { transform: translateX(28px) scale(1.04) } }
+@keyframes lungeR { 50% { transform: translateX(-28px) scale(1.04) } }
+.result { font-size: 16px; font-weight: 700; margin: 10px 0 4px; }
+details#rules { max-width: 1280px; margin: 0 auto 30px; padding: 0 20px; }
+details#rules summary { cursor: pointer; color: var(--muted); padding: 8px 0; }
+details#rules table { border-collapse: collapse; font-size: 12px; margin: 8px 0 16px; width: 100%; }
+details#rules td, details#rules th { border-bottom: 1px solid var(--line); padding: 4px 8px; text-align: left; }
+#toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #222; color: #fff; padding: 10px 16px; border-radius: 10px; max-width: min(560px, calc(100vw - 32px)); display: none; z-index: 9; }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Raise an AI Monster<small>A game where AI tokens are the money</small></h1>
+  <div class="who">
+    <input type="text" id="pname" placeholder="Player name" maxlength="20" size="14">
+    <button id="enter">Enter</button>
+    <span class="tok" id="tokens"></span>
+    <span class="spark" id="spark"></span>
+  </div>
+</header>
+
+<div class="card" id="welcome">
+  <h2>Pick a player name</h2>
+  <p>Type any name in the top right and click <b>Enter</b>. Panels for hatching, learning skills and battling will appear.</p>
+  <p class="hint">The same name brings back the same save next time.</p>
+</div>
+
+<main id="app" class="hidden">
+  <section>
+    <div class="card">
+      <div class="roster hidden" id="roster"><p class="hint" id="rosterHint"></p><div class="strip" id="rstrip"></div></div>
+      <h2><span><span id="mname">My monster</span><button class="ghost rename hidden" id="renameBtn">Rename</button>
+        <span id="renameBox" class="hidden"><input type="text" id="renameInput" maxlength="24"><button id="renameSave">Save</button><button class="ghost" id="renameCancel">Cancel</button></span></span><small id="mowner"></small></h2>
+      <div class="viewer" id="mviewer"><div class="empty">No monster yet. Hatch one on the right</div></div>
+      <div class="strip" id="vstrip"></div>
+      <div id="info"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="card hidden" id="ledgerCard">
+      <h2>Token ledger <small>Tokens buy AI work. You can't buy Tokens, only earn them in battle</small></h2>
+      <div id="ledger"></div>
+    </div>
+
+    <div class="card hidden" id="hatchCard">
+      <h2>Hatch <small id="hatchCost"></small></h2>
+      <div class="plans" id="plans"></div>
+      <input type="text" id="hatchName" maxlength="24" placeholder="Name (optional; leave it empty and the AI picks one)">
+      <textarea id="hatchDesc" placeholder="Describe how it looks, e.g. a round little ice turtle with a translucent ice-crystal shell, four short legs, blue and white"></textarea>
+      <div class="actions"><button id="hatchBtn">Hatch</button><span class="hint">The AI only uses body features. Things like “invincible” or “attack 9999” are noted but don't count</span></div>
+    </div>
+
+    <div class="card hidden" id="growCard">
+      <h2>Grow <small id="growCost"></small></h2>
+      <textarea id="growDesc" placeholder="Describe what it grows next, e.g. a pair of small wings on its back, a longer tail with spikes"></textarea>
+      <div class="actions"><button id="growBtn">Preview changes</button></div>
+      <div id="growPreview"></div>
+    </div>
+
+    <div class="card hidden" id="skillCard">
+      <h2>Learn a skill <small id="skillCost"></small></h2>
+      <textarea id="skillDesc" placeholder="Describe the move, e.g. breathes out a cloud of icy mist"></textarea>
+      <div class="actions"><button id="skillBtn">Learn</button></div>
+      <div id="skillResult"></div>
+    </div>
+
+    <div class="card hidden" id="oppCard">
+      <h2>Opponents <small>Async battles: the computer picks the other side's moves</small></h2>
+      <div class="opps" id="opps"></div>
+    </div>
+
+    <div class="card hidden" id="battleCard">
+      <h2>Battle <small id="bturn"></small></h2>
+      <div class="stage" id="stage"></div>
+      <div class="arena">
+        <div class="side" id="bMe"></div>
+        <div class="vs">VS</div>
+        <div class="side" id="bFoe"></div>
+      </div>
+      <div class="bskills" id="bskills"></div>
+      <div id="bend"></div>
+      <div class="log" id="blog"></div>
+    </div>
+  </section>
+</main>
+
+<details id="rules"><summary>Public rules: parts / type matchups / skill templates (the AI only picks parts; every number comes from these tables)</summary><div id="rulesBody"></div></details>
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const FIT = { good: "good fit", ok: "OK fit", poor: "poor fit" };
+const ELC = { fire: "#e4572e", water: "#2e86de", grass: "#3aa655", electric: "#d4a400", ice: "#3fb4cc", rock: "#8d6e4f", wind: "#5aa38b", shadow: "#6b4fa0", normal: "#888" };
+let R = null, S = null, me = "", selVer = null, pollTimer = null, animating = false, shownBattle = null, hatching = false, renaming = false;
+
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+// The monster changed (switch, release, new hatch, player change): clear the previous one's rename box, growth preview and learn-move result
+let ledgerOpen = false;
+function resetPanels() { selVer = null; hatching = false; renaming = false; $("#growPreview").innerHTML = ""; $("#skillResult").innerHTML = ""; }
+function toast(msg, ms = 4500) { const t = $("#toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", ms); }
+function el(e, locked) { return `<span class="chip ${locked ? "locked" : "el"}" style="${locked ? "" : "background:" + ELC[e]}">${locked ? "🔒 " : ""}${R.label.element[e]}</span>`; }
+
+async function api(path, body) {
+  const r = await fetch("/api/" + path, body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ player: me, ...body }) });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+async function busy(btn, label, fn) {
+  const old = btn.textContent; btn.disabled = true; btn.textContent = label;
+  try { return await fn(); } catch (e) { toast(e.message); } finally { btn.disabled = false; btn.textContent = old; }
+}
+
+async function refresh() {
+  if (!me) return;
+  try { S = await api("state?player=" + encodeURIComponent(me)); } catch (e) { toast(e.message); return; }
+  render();
+  clearTimeout(pollTimer);
+  const pending = S.monster && ["queued", "running"].includes(S.monster.versions.at(-1).glb_status);
+  pollTimer = setTimeout(refresh, pending ? 4000 : 15000);
+}
+
+function setViewer(box, glb, img, status) {
+  let mv = box.querySelector("model-viewer"), im = box.querySelector("img"), st = box.querySelector(".status");
+  if (!mv) {
+    box.innerHTML = `<model-viewer camera-controls auto-rotate shadow-intensity="1" exposure="1.05" interaction-prompt="none"></model-viewer><img alt=""><div class="status"></div>`;
+    mv = box.querySelector("model-viewer"); im = box.querySelector("img"); st = box.querySelector(".status");
+  }
+  if (glb) { if (mv.getAttribute("src") !== "/media/" + glb) mv.setAttribute("src", "/media/" + glb); mv.classList.remove("hidden"); im.classList.add("hidden"); }
+  else { if (im.getAttribute("src") !== "/media/" + img) im.setAttribute("src", "/media/" + img); im.classList.remove("hidden"); mv.classList.add("hidden"); }
+  st.textContent = status || ""; st.classList.toggle("hidden", !status);
+}
+
+function verStatus(v) {
+  if (v.glb_status === "queued") return `The 3D model for this form is queued (${S.queue} in line)… showing the art for now`;
+  if (v.glb_status === "running") return `Building the 3D model… ${Math.max(0, Math.round(Date.now() / 1000 - (v.glb_started || Date.now() / 1000)))} s so far (usually about 2 min)`;
+  if (v.glb_status === "error") return "3D generation failed: " + (v.glb_error || "");
+  return "";
+}
+
+function render() {
+  $("#app").classList.remove("hidden");
+  $("#welcome").classList.add("hidden");
+  const p = S.player, m = S.monster, b = S.battle;
+  $("#tokens").textContent = `${p.tokens} Tokens`;
+  if (!m || b || rosterFull()) hatching = false;
+  $("#hatchCard").classList.toggle("hidden", !!b || (!!m && !hatching));
+  $("#hatchCost").textContent = `${S.hatch_cost ? `${S.hatch_cost} Tokens` : "Free while you have no monster"}` + (S.demo ? " · demo mode: you get a ready-made monster" : " · art in ~15 s, 3D model in ~2 min");
+  for (const id of ["#plans", "#hatchDesc"]) $(id).classList.toggle("hidden", S.demo);
+  $("#app").classList.toggle("in-battle", !!b);
+  $("#ledgerCard").classList.toggle("hidden", !S.ledger.length || !!b);
+  renderLedger();
+  for (const id of ["#growCard", "#skillCard", "#oppCard"]) $(id).classList.toggle("hidden", !m || !!b);
+  $("#battleCard").classList.toggle("hidden", !b);
+  $("#growCost").textContent = `${R.numbers.cost_grow} Tokens · new art in ~10 s, then the 3D model is rebuilt`;
+  $("#skillCost").textContent = `good fit ${R.numbers.cost_skill.good} / OK fit ${R.numbers.cost_skill.ok} / poor fit ${R.numbers.cost_skill.poor} Tokens · up to ${R.numbers.max_skills} skills`;
+  renderRoster(b);
+  if (!m || b) renaming = false;
+  $("#renameBtn").classList.toggle("hidden", !m || renaming);
+  $("#mname").classList.toggle("hidden", renaming);
+  $("#renameBox").classList.toggle("hidden", !renaming);
+  if (!m) {
+    $("#mname").textContent = "My monster"; $("#mowner").textContent = ""; $("#vstrip").innerHTML = ""; $("#info").innerHTML = "";
+    $("#mviewer").innerHTML = `<div class="empty">No monster yet. Hatch one on the right</div>`;
+  } else renderMine(m);
+  renderOpps();
+  if (b) renderBattle(b); else shownBattle = null;
+}
+
+const fmt = n => n.toLocaleString("en-US");
+const minSec = s => s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, "0")} s`;
+function aiWork(r) {
+  const bits = [];
+  if (r.llm_tokens) bits.push(`${fmt(r.llm_tokens)} AI tokens`);
+  if (r.image_seconds != null) bits.push(`image ${r.image_seconds} s`);
+  if (r.glb_seconds != null) bits.push(`3D ${minSec(r.glb_seconds)}`);
+  else if (r.glb_status === "queued" || r.glb_status === "running") bits.push("3D in progress");
+  if (r.rig_seconds != null) bits.push(`skeleton ${minSec(r.rig_seconds)}`);
+  else if (r.rig_status === "queued" || r.rig_status === "running") bits.push("skeleton in progress");
+  return bits.join(" · ");
+}
+function renderLedger() {
+  const rows = ledgerOpen ? S.ledger : S.ledger.slice(0, 3);
+  $("#ledger").innerHTML = rows.map(r => `<div class="lrow"><b class="${r.delta > 0 ? "up" : r.delta < 0 ? "down" : ""}">${r.delta > 0 ? "+" : r.delta < 0 ? "−" : ""}${Math.abs(r.delta)}</b>
+    <span>${esc(r.why)}<em>${aiWork(r) || (r.delta > 0 ? "no AI involved" : "")}</em></span></div>`).join("")
+    + (S.ledger.length > 3 ? `<button class="ghost" id="ledgerMore">${ledgerOpen ? "Show less" : `Show all ${S.ledger.length}`}</button>` : "");
+}
+
+function rosterFull() { return !!S.max_monsters && S.roster.length >= S.max_monsters; }  // max_monsters 0 = no limit
+
+function renderRoster(b) {
+  const list = S.roster, full = rosterFull();
+  $("#roster").classList.toggle("hidden", !list.length || !!b);
+  $("#rosterHint").textContent = `My monsters (${list.length}${S.max_monsters ? ` / ${S.max_monsters}` : ""}). Click one to switch; the others stay in everyone's opponent list`;
+  $("#rstrip").innerHTML = list.map(x => `<button class="${x.active ? "sel" : ""}" data-pick="${esc(x.id)}" title="${esc(x.name)} · Lv.${x.level}"><img src="/media/${esc(x.image)}" alt=""><span class="nm">${esc(x.name)}</span></button>`).join("")
+    + `<button class="add" id="hatchMore" ${full ? `disabled title="You can keep up to ${S.max_monsters} monsters. Release one first"` : ""}>${hatching ? "Cancel" : "+ Hatch another"}</button>`;
+}
+
+function renderMine(m) {
+  $("#mname").textContent = m.name;
+  $("#mowner").textContent = `${R.label.body[m.body_plan]} · ${m.wins} W / ${m.losses} L`;
+  const vs = m.versions, latest = vs.at(-1);
+  const v = vs.find(x => x.v === selVer) || latest;
+  const glb = v.glb || null;
+  setViewer($("#mviewer"), glb, v.image, v === latest ? verStatus(v) : `Version ${v.v} (${v.kind})`);
+  $("#vstrip").innerHTML = vs.length > 1 ? vs.map(x => `<button class="${x === v ? "sel" : ""}" data-v="${esc(x.v)}" title="${esc(x.desc)}"><img src="/media/${esc(x.image)}"><span>v${esc(x.v)} · ${esc(x.kind)}</span></button>`).join("") : "";
+  const maxStat = Math.max(...Object.values(m.stats), 1);
+  const locked = m.elements.filter(e => !m.active_elements.includes(e));
+  $("#info").innerHTML = `
+    <div class="row"><span class="lvl">Lv.${m.level}</span>
+      <div class="bar" title="XP ${m.xp}/${R.numbers.xp_per_level}"><i style="width:${m.level >= R.numbers.level_cap ? 100 : m.xp / R.numbers.xp_per_level * 100}%"></i></div>
+      <small>${m.level >= R.numbers.level_cap ? "MAX" : `${m.xp}/${R.numbers.xp_per_level} XP`}</small></div>
+    <div class="row">${m.active_elements.map(e => el(e)).join("")}${locked.map(e => el(e, true)).join("")}
+      <span class="chip">${m.can_fly ? "🕊 Can fly" : "Can't fly"}</span><span class="chip">Stat total ${m.stat_total}</span></div>
+    ${m.locks.length ? `<ul class="locks">${m.locks.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
+    ${Object.entries(m.stats).map(([k, val]) => `<div class="stat"><span>${R.label.stat[k]}</span><div class="bar"><i style="width:${val / maxStat * 100}%"></i></div><b>${val}</b></div>`).join("")}
+    <div class="row">${m.parts.map(x => `<span class="chip">${R.label.part[x.part]} · ${R.label.size[x.size]}</span>`).join("") || '<span class="hint">No special parts</span>'}</div>
+    <ul class="skills"><li><span>Tackle <small>Strike · Normal · built-in</small></span></li>
+      ${m.skills.map((s, i) => `<li><span>${esc(s.name)} <small>${R.templates[s.template].label} · ${R.label.element[s.element]} · ${FIT[s.fit]}${s.requires_flight ? " · needs flight" + (m.can_fly ? "" : " (can't use it yet)") : ""}</small></span><button class="ghost" data-forget="${i}">Forget</button></li>`).join("")}
+    </ul>
+    <div class="actions"><button class="ghost" id="releaseBtn">Release this monster (gone for good)</button></div>`;
+}
+
+function renderOpps() {
+  const list = S.opponents;
+  $("#opps").innerHTML = list.length ? list.map(o => `
+    <div class="opp"><img src="/media/${esc(o.image)}" loading="lazy">
+      <div class="nm">${esc(o.name)} <small style="display:inline">Lv.${o.level}</small></div>
+      <div class="row">${o.active_elements.map(e => el(e)).join("")}${o.can_fly ? '<span class="chip">🕊</span>' : ""}</div>
+      <small>${o.owner === S.player.name ? "Yours" : o.owner ? "Player " + esc(o.owner) : "Wild"} · ${o.wins} W / ${o.losses} L · ${o.skills} skills</small>
+      <button data-fight="${esc(o.id)}">Fight</button></div>`).join("") : '<p class="hint">No other monsters yet</p>';
+}
+
+function hpPct(f) { return Math.max(0, f.hp / f.max_hp * 100); }
+// Battle stage: two monsters face each other in arena.js (three.js) and animate by body part if rigged; if WebGL or the module won't load, fall back to two pictures
+let arena = null, arenaFailed = false;
+async function ensureArena() {
+  if (arena || arenaFailed) return arena;
+  try { arena = await (await import("/static/arena.js")).createArena($("#stage")); }
+  catch (e) { console.warn("3D stage failed to start, showing the art instead", e); arenaFailed = true; }
+  return arena;
+}
+// Backdrop: a wild battle is fought on the opponent's turf, so pick by the opponent's first element (images come from make_backdrops.py)
+const BACKDROP = { grass: "meadow", normal: "meadow", wind: "meadow", fire: "volcano", rock: "canyon", water: "beach",
+                   ice: "snow", electric: "storm", shadow: "twilight" };
+async function loadStage(b) {
+  $("#stage").style.backgroundImage = `url(/static/backdrops/${BACKDROP[b.foe.elements[0]] || "meadow"}.jpg)`;
+  const spec = {};
+  for (const side of ["me", "foe"]) spec[side] = { glb: b.glb[side], rig: b.rig && b.rig[side], image: b.image[side],
+    body_plan: b.body_plan && b.body_plan[side], can_fly: b[side].can_fly };
+  const note = document.createElement("div"); note.className = "loading"; note.textContent = "Loading 3D models…";
+  const a = await ensureArena();
+  if (!a) {
+    $("#stage").innerHTML = `<div class="fallback">${["me", "foe"].map(s => `<img id="fb-${s}" src="/media/${esc(b.image[s])}" alt="">`).join("")}</div>`;
+    return;
+  }
+  $("#stage").appendChild(note);
+  try { await a.load(spec); } catch (e) { console.warn(e); toast("Couldn't load the 3D models: " + e.message); }
+  note.remove();
+}
+
+function renderBattle(b) {
+  if (animating) return;
+  $("#bturn").textContent = b.winner ? "Over" : `Turn ${b.turn + 1}`;
+  if (shownBattle !== b.foe.id + ":" + b.me.id) {
+    shownBattle = b.foe.id + ":" + b.me.id;
+    for (const [side, box] of [["me", "#bMe"], ["foe", "#bFoe"]]) {
+      const f = b[side];
+      $(box).innerHTML = `<div class="nm">${esc(f.name)} Lv.${f.level}</div>
+        <div class="row" style="justify-content:center">${f.elements.map(e => el(e)).join("")}${f.can_fly ? '<span class="chip">🕊</span>' : ""}</div>
+        <div class="hpbar"><i></i></div><small class="hpnum"></small>`;
+    }
+    loadStage(b);
+  }
+  for (const [side, box] of [["me", "#bMe"], ["foe", "#bFoe"]]) setHp(box, b[side].hp, b[side].max_hp);
+  $("#bskills").innerHTML = b.winner ? "" : b.me.skills.map((s, i) => {
+    const t = R.templates[s.template];
+    return `<button data-move="${i}" style="background:${ELC[s.element]}">${esc(s.name)}<small>${t.label} · ${R.label.element[s.element]}${t.power ? " · power " + (s.builtin ? R.tackle_power : t.power) : ""}${s.requires_flight && !b.me.can_fly ? " · can't fly" : ""}</small></button>`;
+  }).join("");
+  $("#blog").innerHTML = b.log.map(e => `<p class="${e.side === "me" ? "me" : ""}">${esc(e.text)}</p>`).join("") || '<p class="hint">Pick a move to start. The faster monster goes first.</p>';
+  $("#blog").scrollTop = 1e9;
+  $("#bend").innerHTML = b.winner ? `<div class="result">${b.winner === "me" ? "🎉 You won" : "You lost"}</div>
+    ${b.reward ? `<p class="hint">Earned ${b.reward.tokens} Tokens and ${b.reward.xp} XP${b.reward.levels ? `, and reached Lv.${b.reward.level}!` : ""}</p>` : ""}
+    <div class="actions"><button id="leaveBtn">Back</button></div>` : "";
+}
+function setHp(box, hp, max) { $(box + " .hpbar i").style.width = Math.max(0, hp / max * 100) + "%"; $(box + " .hpnum").textContent = `${hp} / ${max}`; }
+
+async function playEvents(b0, events) {
+  animating = true;
+  const hp = { me: b0.me.hp, foe: b0.foe.hp };
+  for (const e of events) {
+    const atk = e.side, def = atk === "me" ? "foe" : "me";
+    const atkBox = atk === "me" ? "#bMe" : "#bFoe", defBox = def === "me" ? "#bMe" : "#bFoe";
+    const p = document.createElement("p"); p.className = atk === "me" ? "me" : ""; p.textContent = e.text;
+    $("#blog").appendChild(p); $("#blog").scrollTop = 1e9;
+    const impact = () => {  // HP only changes at the moment of the "hit" in the animation
+      if (e.dmg) { hp[def] = Math.max(0, hp[def] - e.dmg); setHp(defBox, hp[def], b0[def].max_hp); }
+      if (e.heal) { hp[atk] += e.heal; setHp(atkBox, hp[atk], b0[atk].max_hp); }
+    };
+    if (arena) {
+      try { await arena.play(e, impact); } catch (x) { console.warn(x); impact(); }
+      if (hp[def] <= 0) { arena.faint(def); await new Promise(r => setTimeout(r, 900)); }
+      await new Promise(r => setTimeout(r, 250));
+    } else {
+      const img = $("#fb-" + atk);
+      if (img && e.skill) { img.classList.remove("lunge-l", "lunge-r"); void img.offsetWidth; img.classList.add(atk === "me" ? "lunge-l" : "lunge-r"); }
+      await new Promise(r => setTimeout(r, 250));
+      impact();
+      const dimg = $("#fb-" + def);
+      if (dimg && e.dmg) { dimg.classList.remove("shake"); void dimg.offsetWidth; dimg.classList.add("shake"); }
+      await new Promise(r => setTimeout(r, 750));
+    }
+  }
+  animating = false;
+}
+
+function renderRules() {
+  const z = R.label;
+  const parts = Object.entries(R.parts).map(([k, v]) => `<tr><td>${z.part[k]}</td><td>${Object.entries(v).map(([s, w]) => `${z.stat[s]} ${w > 0 ? "+" : ""}${w}`).join(", ")}</td></tr>`).join("");
+  const beats = Object.entries(R.beats).map(([k, v]) => `<tr><td>${el(k)}</td><td>strong against ${v.map(x => z.element[x]).join(", ")}</td><td>weak against ${Object.keys(R.beats).filter(a => R.beats[a].includes(k)).map(x => z.element[x]).join(", ")}</td></tr>`).join("");
+  const tpls = Object.entries(R.templates).map(([k, t]) => `<tr><td>${t.label}</td><td>${t.power ? "power " + t.power + " · accuracy " + t.acc : "—"}</td><td>${t.note}</td></tr>`).join("");
+  const n = R.numbers;
+  $("#rulesBody").innerHTML = `
+    <p class="hint">Stat total = 200 + 20 × level (set by code). The AI picks out parts from your description, and the table below decides how the total is spread. Bigger parts count more: large ×1.5, medium ×1, small ×0.5.</p>
+    <table><tr><th>Part</th><th>Leans toward</th></tr>${parts}</table>
+    <p class="hint">Strong against ×1.6, weak against ×0.6; with two elements the multipliers combine and are capped at 0.5–2. A move that matches the user's own element gets another ×1.2.</p>
+    <table>${beats}</table>
+    <table><tr><th>Skill template</th><th>Numbers</th><th>Notes</th></tr><tr><td>Tackle (built-in)</td><td>power ${R.tackle_power} · accuracy 95</td><td>Normal-type melee</td></tr>${tpls}</table>
+    <p class="hint">Hatching costs ${n.cost_hatch} Tokens (free while you have no monster). You start with ${n.start_tokens} Tokens at Lv.${n.level_start}; the level cap is ${n.level_cap}. A win gives +${n.reward_win.tokens} Tokens and +${n.reward_win.xp} XP, a loss +${n.reward_lose.tokens} / +${n.reward_lose.xp}; ${n.xp_per_level} XP per level.
+    Flight (Winged / Floating / grown wings) and a second element only work from Lv.${n.unlock_level}. Tokens can't be bought, only earned in battle. A skill's element must be one the monster already has (or Normal).</p>`;
+}
+
+// ---------- Events ----------
+document.addEventListener("click", async ev => {
+  const t = ev.target.closest("button"); if (!t) return;
+  if (t.id === "ledgerMore") { ledgerOpen = !ledgerOpen; renderLedger(); return; }
+  if (t.dataset.v) { selVer = +t.dataset.v === S.monster.versions.at(-1).v ? null : +t.dataset.v; render(); }
+  else if (t.dataset.forget !== undefined) { await busy(t, "…", () => api("skill/forget", { idx: +t.dataset.forget })); refresh(); }
+  else if (t.dataset.fight) { await busy(t, "Entering…", () => api("battle/start", { opponent: t.dataset.fight })); shownBattle = null; refresh(); }
+  else if (t.dataset.move !== undefined) {
+    if (animating) return;
+    const b0 = S.battle;
+    $("#bskills").querySelectorAll("button").forEach(x => x.disabled = true);
+    try { const r = await api("battle/move", { idx: +t.dataset.move }); await playEvents(b0, r.events); }
+    catch (e) { toast(e.message); }
+    refresh();
+  }
+  else if (t.dataset.pick) {
+    if (t.classList.contains("sel")) return;
+    await busy(t, "…", () => api("monster/select", { id: t.dataset.pick })); resetPanels(); refresh();
+  }
+  else if (t.id === "hatchMore") { hatching = !hatching; render(); if (hatching) $("#hatchName").focus(); }
+  else if (t.id === "renameBtn") { renaming = true; $("#renameInput").value = S.monster.name; render(); $("#renameInput").focus(); $("#renameInput").select(); }
+  else if (t.id === "renameCancel") { renaming = false; render(); }
+  else if (t.id === "renameSave") { await busy(t, "…", async () => { await api("monster/rename", { name: $("#renameInput").value }); renaming = false; }); refresh(); }
+  else if (t.id === "leaveBtn") { await api("battle/leave", {}); refresh(); }
+  else if (t.id === "releaseBtn") { if (t.dataset.confirm) { await api("release", {}); resetPanels(); refresh(); } else { t.dataset.confirm = 1; t.textContent = "Click again to confirm release"; } }
+  else if (t.id === "growConfirm") {
+    await busy(t, "Redrawing…", async () => { await api("grow/confirm", {}); $("#growPreview").innerHTML = ""; $("#growDesc").value = ""; selVer = null; toast("It grew! The new art is ready; the 3D model is being rebuilt in the background"); });
+    refresh();
+  }
+  else if (t.id === "growCancel") { await api("grow/cancel", {}); $("#growPreview").innerHTML = ""; }
+});
+
+$("#enter").onclick = () => { me = $("#pname").value.trim(); if (!me) return toast("Enter a player name first"); try { localStorage.setItem("monster_player", me); } catch (e) {} resetPanels(); refresh(); };
+$("#pname").onkeydown = e => { if (e.key === "Enter") $("#enter").click(); };
+$("#renameInput").onkeydown = e => { if (e.key === "Enter") $("#renameSave").click(); else if (e.key === "Escape") $("#renameCancel").click(); };
+
+$("#hatchBtn").onclick = e => busy(e.target, "The AI is reading your description and drawing…", async () => {
+  const plan = document.querySelector("input[name=plan]:checked");
+  if (!plan && !S.demo) throw new Error("Pick a body type first");
+  const r = await api("hatch", { body_plan: plan?.value, desc: $("#hatchDesc").value, name: $("#hatchName").value });
+  $("#hatchDesc").value = ""; $("#hatchName").value = ""; resetPanels();
+  toast(S.demo ? `Demo mode: here is a monster made earlier on real hardware (${r.cost ? `${r.cost} Tokens` : "free"})` : `Hatched in ${r.seconds} s for ${r.cost ? `${r.cost} Tokens` : "free"}. The AI used ${fmt(r.llm_tokens)} tokens. The 3D model is being built in the background (about 2 min)` + (r.ignored_claims.length ? `. These didn't count: ${r.ignored_claims.join("; ")}` : ""), 7000);
+  await refresh();
+});
+
+$("#growBtn").onclick = e => busy(e.target, "The AI is comparing the profile…", async () => {
+  const r = await api("grow/preview", { desc: $("#growDesc").value });
+  const d = Object.entries(r.deltas).map(([k, v]) => `<span class="${v > 0 ? "up" : "down"}">${R.label.stat[k]} ${v > 0 ? "+" : ""}${v}</span>`).join("&nbsp;&nbsp; ");
+  $("#growPreview").innerHTML = `<div class="preview"><b>Profile changes</b>
+    ${r.changes.length ? `<ul>${r.changes.map(c => `<li>${esc(c)}</li>`).join("")}</ul>` : "<p>No profile changes (only small details of the look will change)</p>"}
+    ${d ? `<div>Stat changes (the total stays the same, only the spread changes): ${d}</div>` : ""}
+    ${r.ignored_claims.length ? `<div class="ignored">Didn't count: ${r.ignored_claims.map(esc).join("; ")}</div>` : ""}
+    ${r.llm_tokens ? `<div class="hint">The AI used ${fmt(r.llm_tokens)} tokens working this out.</div>` : ""}
+    <div class="actions"><button id="growConfirm">Confirm growth (${r.cost} Tokens)</button><button class="ghost" id="growCancel">Never mind</button></div></div>`;
+});
+
+$("#skillBtn").onclick = e => busy(e.target, "The AI is working out the move…", async () => {
+  const r = await api("skill/learn", { desc: $("#skillDesc").value });
+  const s = r.skill;
+  $("#skillDesc").value = "";
+  $("#skillResult").innerHTML = `<div class="preview">Learned <b>${esc(s.name)}</b>: ${R.templates[s.template].label} · ${R.label.element[s.element]} · ${FIT[s.fit]} (${esc(s.fit_reason)}). Cost: ${r.cost} Tokens${r.llm_tokens ? ` · the AI used ${fmt(r.llm_tokens)} tokens` : ""}
+    ${r.ignored_claims.length ? `<div class="ignored">Didn't count: ${r.ignored_claims.map(esc).join("; ")}</div>` : ""}</div>`;
+  refresh();
+});
+
+async function health() {
+  const box = $("#spark");
+  try {
+    const h = await api("health");
+    const ok = h.image && h.llm;
+    box.className = "spark " + (ok ? "ok" : "down");
+    box.textContent = h.demo ? "Demo mode: no AI models" : ok ? "AI server online" : `AI server unreachable (${[!h.llm && "language model", !h.image && "images"].filter(Boolean).join(", ")}), reconnecting`;
+  } catch (e) { box.className = "spark down"; box.textContent = "Game server unreachable"; }
+}
+
+(async () => {
+  health(); setInterval(health, 20000);
+  R = await api("rules");
+  $("#plans").innerHTML = R.body_plans.map(k => `<label><input type="radio" name="plan" value="${k}"><span>${R.label.body[k]}</span></label>`).join("");
+  renderRules();
+  me = new URLSearchParams(location.search).get("player") || "";
+  if (!me) try { me = localStorage.getItem("monster_player") || ""; } catch (e) {}
+  if (me) { $("#pname").value = me; refresh(); } else $("#pname").focus();
+})();
+</script>
+</body>
+</html>

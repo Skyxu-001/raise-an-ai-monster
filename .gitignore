@@ -1,0 +1,6 @@
+__pycache__/
+game/data/
+game/demo_data/
+out/
+assets/wild/*.glb
+.DS_Store
