@@ -18,10 +18,12 @@
 
 <p align="center">
   <a href="https://www.youtube.com/watch?v=KhOamRirCMg"><b>Watch the video</b></a> ·
+  <a href="https://www.bilibili.com/video/BV1xjWV6GEo4/"><b>中文视频 (Bilibili)</b></a> ·
   <a href="#try-it-without-a-gpu"><b>Try it</b></a> ·
   <a href="#how-a-monster-is-made"><b>How it works</b></a> ·
   <a href="#the-ai-translates-code-is-the-judge"><b>Can you cheat?</b></a> ·
-  <a href="docs/engineering-notes.md"><b>Engineering notes</b></a>
+  <a href="docs/engineering-notes.md"><b>Engineering notes</b></a> ·
+  <a href="README.zh-CN.md"><b>简体中文</b></a>
 </p>
 
 > [!NOTE]
