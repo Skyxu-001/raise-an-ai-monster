@@ -259,3 +259,7 @@ FLUX.2 klein (Black Forest Labs, Apache-2.0) · TRELLIS.2 (Microsoft, MIT) · Pi
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+---
+
+If you find this project useful or interesting, a ⭐ helps others discover it. Thanks!

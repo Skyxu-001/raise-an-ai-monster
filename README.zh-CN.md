@@ -184,3 +184,7 @@ FLUX.2 klein（Black Forest Labs，Apache-2.0）· TRELLIS.2（Microsoft，MIT�
 ## 许可
 
 MIT，见 [LICENSE](LICENSE)。
+
+---
+
+如果觉得这个项目有用或有意思，欢迎点个 ⭐，让更多人看到它。谢谢！
